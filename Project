@@ -1,0 +1,1788 @@
+#define _CRT_SECURE_NO_WARNINGS
+#include<iostream>
+#include<string>
+#include<fstream>
+#include <sstream>
+#include<set>
+#include<map>
+#include<vector>
+#include<algorithm>
+#include<list>
+using namespace std;
+
+bool compararePret(const pair<string, float>& a, const pair<string, float>& b) {
+	return a.second < b.second;
+}
+
+class CustomException {
+	string mesaj;
+public:
+	CustomException(string mesaj) : mesaj(mesaj) {}
+	string getMesaj() { return this->mesaj; }
+};
+
+class IBinabil {
+	virtual void writeToFile(fstream& f) = 0;
+	virtual void readFromFile(fstream& f) = 0;
+	virtual void setDenumire(string denumire) = 0;
+};
+
+class MateriePrima: IBinabil {
+	const int id;
+	char* denumire;
+	float cantitate;
+	string unitateMasura;
+	static int nrMateriiPrime;
+public:
+
+	MateriePrima(const char* denumire, float cantitate, string unitateMasura) : id(nrMateriiPrime++) {
+		if (denumire != nullptr) {
+			this->denumire = new char[strlen(denumire) + 1];
+			strcpy(this->denumire, denumire);
+		}
+		else
+			this->denumire = nullptr;
+
+		if (cantitate > 0) {
+			this->cantitate = cantitate;
+		}
+		else
+			this->cantitate = 0;
+		this->unitateMasura = unitateMasura;
+	}
+
+	MateriePrima() : id(nrMateriiPrime++) {
+		this->denumire = nullptr;
+		this->cantitate = 0;
+		this->unitateMasura = "N/A";
+	}
+
+	MateriePrima(const MateriePrima& m) : id(m.id) {
+		if (m.denumire != nullptr) {
+			this->denumire = new char[strlen(m.denumire) + 1];
+			strcpy(this->denumire, m.denumire);
+		}
+		else
+			this->denumire = nullptr;
+
+		if (m.cantitate > 0) {
+			this->cantitate = m.cantitate;
+		}
+		else
+			this->cantitate = 0;
+		this->unitateMasura = m.unitateMasura;
+	}
+
+	MateriePrima& operator=(const MateriePrima& m) {
+		if (this != &m) {
+			delete[]  this->denumire;
+			this->denumire = nullptr;
+			if (m.denumire != nullptr) {
+				this->denumire = new char[strlen(m.denumire) + 1];
+				strcpy(this->denumire, m.denumire);
+			}
+			else
+				this->denumire = nullptr;
+
+			if (m.cantitate > 0) {
+				this->cantitate = m.cantitate;
+			}
+			else
+				this->cantitate = 0;
+			this->unitateMasura = m.unitateMasura;
+			return *this;
+		}
+	}
+
+	friend ostream& operator <<(ostream& out, const MateriePrima& m) {
+		out << "\n=================================================";
+		out << "\nId: " << m.id;
+		out << "\nDenumire: ";
+		if (m.denumire != nullptr)
+			out << m.denumire;
+		else out << " -";
+		out << "\nCantitate: " << m.cantitate << " "<< m.unitateMasura;
+		return out;
+	}
+
+	friend ofstream& operator << (ofstream& fout, MateriePrima& m) {
+		fout << m.denumire << endl;
+		fout << m.cantitate << endl;
+		fout << m.unitateMasura;
+		return fout;
+	}
+
+	friend istream& operator >>(istream& in, MateriePrima& m) {
+		delete[] m.denumire;
+		m.denumire = nullptr;
+		cout << "\nIntroduceti denumire: ";
+		string buffer;
+		in.get();
+		getline(in, buffer);
+		m.denumire = new char[buffer.size() + 1];
+		strcpy(m.denumire, buffer.data());
+
+		cout << "Introduceti cantitatea: ";
+		float cantitate;
+		in >> cantitate;
+		if (cantitate > 0)
+			m.cantitate = cantitate;
+		else
+			m.cantitate = 0;
+		cout << "Introduceti unitatea de masura: ";
+		in >> m.unitateMasura;
+
+		return in;
+	}
+
+	friend ifstream& operator >>(ifstream& fin, MateriePrima& m) {
+		delete[] m.denumire;
+		m.denumire = nullptr;
+		string buffer;
+		fin.get();
+		getline(fin, buffer);
+		m.denumire = new char[buffer.size() + 1];
+		strcpy(m.denumire, buffer.data());
+
+		fin >> m.cantitate;
+		fin >> m.unitateMasura;
+
+		return fin;
+	}
+
+	virtual void writeToFile(fstream& f) {
+		int lg1 = strlen(this->denumire);
+		f.write((char*)&lg1, sizeof(int));
+		for(int i = 0; i < lg1; i++)
+		f.write((char*)&this->denumire[i], sizeof(char));
+		
+		f.write((char*)(&this->cantitate), sizeof(float));
+
+		int lg2 = this->unitateMasura.size() + 1;
+		f.write((char*)&lg2, sizeof(int));
+		f.write((char*)this->unitateMasura.data(), lg2);
+	}
+
+	virtual void readFromFile(fstream& f) {
+		int lg1;
+		delete[] this->denumire;
+		this->denumire = nullptr;
+
+		f.read((char*)&lg1, sizeof(int));
+		this->denumire = new char[lg1+1];
+		
+		for(int i = 0; i < lg1; i++)
+		f.read((char*)( & this->denumire[i]), sizeof(char));
+
+		this->denumire[lg1] = '\0';
+		f.read((char*)(&this->cantitate), sizeof(float));
+
+		int lg2;
+		f.read((char*)&lg2, sizeof(int));
+		char *buffer = new char[lg2];
+		f.read(buffer, lg2);
+		this->unitateMasura = buffer;
+		delete[] buffer;
+		buffer = nullptr;
+	}
+
+	void writeCSV(string filename) {
+		fstream f(filename);
+		f<< this->denumire << ',';
+		f<< this->cantitate << ',';
+		f<< this->unitateMasura;
+		f.close();
+	}
+
+	void readCSV(string filename) {
+		fstream f(filename);
+		string line, word;
+		getline(f, line);
+		stringstream str(line);
+		getline(str, word, ',');
+		delete[] this->denumire;
+		this->denumire = nullptr;
+		this->denumire = new char[word.size() + 1];
+		strcpy(this->denumire, word.data());
+		getline(str, word, ',');
+		this->cantitate = stof(word);
+		getline(str, word, ',');
+		this->unitateMasura = word;
+		f.close();
+	}
+
+	MateriePrima& operator +(float cantitateAdaugata) {
+		if (cantitateAdaugata > 0) {
+			this->cantitate += cantitateAdaugata;
+		}
+		else
+			throw new CustomException("\n Cantitatea itrodusa este invalida!");
+		return *this;
+	}
+
+	virtual void setDenumire(string denumire) {
+		if (denumire.size() > 1) {
+			delete[] this->denumire;
+			this->denumire = nullptr;
+			this->denumire = new char[denumire.size() + 1];
+			strcpy(this->denumire, denumire.data());
+		}
+		else
+			throw new CustomException("\nDenumirea este invalida!");
+	}
+
+	void setCantitate(float cantitate) {
+		if (cantitate > 0)
+			this->cantitate = cantitate;
+		else
+			throw new CustomException("\nCantitatea este invalida!");
+	}
+
+	void setUnitateMasura(string um) {
+		if (um.length() > 0)
+			this->unitateMasura = um;
+		else
+			throw new CustomException("\nUnitatea de masura este invalida!");
+	}
+
+	int getId() {
+		return this->id;
+	}
+
+	char* getDenumire() {
+		return this->denumire;
+	}
+
+	float getCantitate() {
+		return this->cantitate;
+	}
+
+	string getUnitateMasura() {
+		return this->unitateMasura;
+	}
+
+	bool verifCantitate(int val) {
+		if (this->cantitate - val < 0)
+			return 0;
+		return 1;
+	}
+
+	void scadereCantitate(int val) {
+		this->cantitate -= val;
+	}
+
+	~MateriePrima() {
+		delete[]  this->denumire;
+		this->denumire = nullptr;
+	}
+};
+
+int MateriePrima::nrMateriiPrime = 0;
+
+class Faina : public MateriePrima {
+	string tip;
+
+public:
+	Faina() { this->tip = "n/a"; }
+
+	Faina(const char* denumire, float cantitate, string unitateMasura, string tip) : MateriePrima(denumire, cantitate, unitateMasura) {
+		this->tip = tip;
+	}
+
+	Faina(const Faina& f) : MateriePrima(f) {
+		this->tip = f.tip;
+	}
+
+	Faina& operator= (const Faina& f) {
+		if (this != &f) {
+			this->MateriePrima ::operator=(f);
+			this->tip = f.tip;
+		}
+		return *this;
+	}
+
+	friend ostream& operator<<(ostream& out, const Faina& f) {
+		out << (MateriePrima&)f;
+		out << "\nTip faina: " << f.tip;
+		return out;
+	}
+
+	void writeToFile(fstream& f) {
+		MateriePrima::writeToFile(f);
+
+		int lg = this->tip.size() + 1;
+		f.write((char*)&tip, sizeof(int));
+		f.write((char*)this->tip.data(), lg);
+	}
+
+	void readFromFile(fstream& f) {
+		MateriePrima::readFromFile(f);
+
+		int lg;
+		f.read((char*)&lg, sizeof(int));
+		char* buffer = new char[lg];
+		f.read(buffer, lg);
+		this->tip = buffer;
+		delete[] buffer;
+	}
+
+	void setDenumire(string denumire) {
+		string denumireNoua = denumire + this->tip;
+		MateriePrima::setDenumire(denumireNoua);
+	}
+
+	~Faina() {}
+};
+
+class Stoc {
+	int nrMateriiPrime;
+	MateriePrima** stocMaterii;
+
+public:
+
+	Stoc(int nrMateriiPrime, MateriePrima** stocMaterii) {
+		this->nrMateriiPrime = nrMateriiPrime;
+		if (this->nrMateriiPrime > 0 && stocMaterii != nullptr) {
+			this->stocMaterii = new MateriePrima * [this->nrMateriiPrime];
+			for (int i = 0; i < this->nrMateriiPrime; i++)
+				this->stocMaterii[i] = new MateriePrima(*stocMaterii[i]);
+		}
+	}
+
+	Stoc() {
+		this->nrMateriiPrime = 0;
+		this->stocMaterii = nullptr;
+	}
+
+	Stoc(const Stoc& s) {
+		this->nrMateriiPrime = s.nrMateriiPrime;
+		if (this->nrMateriiPrime > 0 && s.stocMaterii != nullptr) {
+			this->stocMaterii = new MateriePrima * [this->nrMateriiPrime];
+			for (int i = 0; i < this->nrMateriiPrime; i++)
+				this->stocMaterii[i] = new MateriePrima(*s.stocMaterii[i]);
+		}
+	}
+
+	Stoc& operator=(const Stoc& s) {
+		if (this != &s) {
+			delete[] this->stocMaterii;
+			this->stocMaterii = nullptr;
+			this->nrMateriiPrime = s.nrMateriiPrime;
+			if (this->nrMateriiPrime > 0 && s.stocMaterii != nullptr) {
+				this->stocMaterii = new MateriePrima * [this->nrMateriiPrime];
+				for (int i = 0; i < this->nrMateriiPrime; i++)
+					this->stocMaterii[i] = new MateriePrima(*s.stocMaterii[i]);
+			}
+		}
+		return *this;
+	}
+
+	friend ostream& operator << (ostream& out, const Stoc& s) {
+		out << "\n=============STOC MATERII PRIME================";
+		out << "\nNumar materii prime: " << s.nrMateriiPrime;
+		out << "\nMaterii prime: ";
+		if (s.stocMaterii != nullptr) {
+			for (int i = 0; i < s.nrMateriiPrime; i++)
+				out << *s.stocMaterii[i] << " ";
+		}
+		else
+			out << " -";
+		return out;
+	}
+
+	friend ofstream& operator << (ofstream& fout, const Stoc& s) {
+		fout << s.nrMateriiPrime << endl;
+		if(s.stocMaterii)
+		for (int i = 0; i < s.nrMateriiPrime; i++)
+			fout << *s.stocMaterii[i] << endl;
+		return fout;
+	}
+
+	void writeToFile(fstream& f) {
+		f.write((char*)(&this->nrMateriiPrime), sizeof(int));
+		for (int i = 0; i < this->nrMateriiPrime; i++) {
+			stocMaterii[i]->writeToFile(f);
+		}
+	}
+
+	void readFromFile(fstream& f) {
+		f.read((char*)(&this->nrMateriiPrime), sizeof(int));
+		this->stocMaterii = new MateriePrima * [this->nrMateriiPrime];
+		for (int i = 0; i < this->nrMateriiPrime; i++) {
+			this->stocMaterii[i] = new MateriePrima();
+			this->stocMaterii[i]->readFromFile(f);
+		}
+	}
+
+	friend istream& operator >> (istream& in, Stoc& s) {
+		delete[] s.stocMaterii;
+		s.stocMaterii = nullptr;
+		cout << "\nIntroduceti numarul materiilor prime: ";
+		int nr;
+		in >> nr;
+		if (nr > 0)
+			s.nrMateriiPrime = nr;
+		else
+			s.nrMateriiPrime = 0;
+
+		if (s.nrMateriiPrime > 0)
+		{
+			s.stocMaterii = new MateriePrima * [s.nrMateriiPrime];
+			for (int i = 0; i < s.nrMateriiPrime; i++)
+			{
+				s.stocMaterii[i] = new MateriePrima();
+				in >> *s.stocMaterii[i];
+			}
+		}
+		else
+			s.stocMaterii = nullptr;
+		return in;
+	}
+
+	friend ifstream& operator >> (ifstream& fin, Stoc& s) {
+		delete[] s.stocMaterii;
+		s.stocMaterii = nullptr;
+		int nr;
+		fin >> nr;
+		if (nr > 0)
+			s.nrMateriiPrime = nr;
+		else
+			s.nrMateriiPrime = 0;
+		if (s.nrMateriiPrime > 0)
+		{
+			s.stocMaterii = new MateriePrima * [s.nrMateriiPrime];
+			for (int i = 0; i < s.nrMateriiPrime; i++)
+			{
+				s.stocMaterii[i] = new MateriePrima();
+				fin >> *s.stocMaterii[i];
+			}
+		} else
+			s.stocMaterii = nullptr;
+		return fin;
+	}
+
+	void writeCSVStoc(string filename) {
+		fstream f(filename);
+		f << this->nrMateriiPrime;
+		f << endl;
+		for (int i = 0; i < this->nrMateriiPrime; i++)
+		{
+			f << (*this->stocMaterii[i]).getDenumire() << ',';
+			f << (*this->stocMaterii[i]).getCantitate() << ',';
+			f << (*this->stocMaterii[i]).getUnitateMasura()<<endl;
+		}
+		f.close();
+	}
+
+	void readCSVStoc(string filename) {
+		fstream f(filename);
+		string line, word;
+		getline(f, line);
+		this->nrMateriiPrime = stoi(line);
+
+		if (this->nrMateriiPrime > 0) {
+			this->stocMaterii = new MateriePrima * [this->nrMateriiPrime];
+			int i = 0;
+			while (getline(f, line) && i< this->nrMateriiPrime) {
+				this->stocMaterii[i] = new MateriePrima();
+				stringstream str(line);
+				getline(str, word, ',');
+				this->stocMaterii[i]->setDenumire(word);
+				getline(str, word, ',');
+				this->stocMaterii[i]->setCantitate(stof(word));
+				getline(str, word, ',');
+				this->stocMaterii[i]->setUnitateMasura(word);
+				i++;
+			}
+		}
+		f.close();
+	}
+
+	void setDenumire(int id, string denumire) {
+		int ok = 1;
+		for (int i = 0; i < this->nrMateriiPrime && ok; i++)
+			if (id == this->stocMaterii[i]->getId())
+			{
+				this->stocMaterii[i]->setDenumire(denumire);
+				ok = 0;
+			}
+		if (ok)
+			throw new CustomException("\nId-ul este invalid!");
+	}
+
+	void setCantitate(int id, float cantitate) {
+		int ok = 1;
+		for (int i = 0; i < this->nrMateriiPrime && ok; i++)
+			if (id == this->stocMaterii[i]->getId())
+			{
+				this->stocMaterii[i]->setCantitate(cantitate);
+				ok = 0;
+			}
+		if (ok)
+			throw new CustomException("\nId-ul este invalid!");
+	}
+
+	void setUnitateMasura(int id, string um) {
+		int ok = 1;
+		for (int i = 0; i < this->nrMateriiPrime && ok; i++)
+			if (id == this->stocMaterii[i]->getId())
+			{
+				this->stocMaterii[i]->setUnitateMasura(um);
+				ok = 0;
+			}
+		if (ok)
+			throw new CustomException("\nId-ul este invalid!");
+	}
+
+	const char* getDenumire(int id) {
+		int ok = 1;
+		for (int i = 0; i < this->nrMateriiPrime && ok; i++)
+			if (id == this->stocMaterii[i]->getId())
+				return this->stocMaterii[i]->getDenumire();
+		throw new CustomException("\nId-ul este invalid!");
+	}
+
+	float getCantitate(int id) {
+		int ok = 1;
+		for (int i = 0; i < this->nrMateriiPrime && ok; i++)
+			if (id == this->stocMaterii[i]->getId())
+				return this->stocMaterii[i]->getCantitate();
+		throw new CustomException("\nId-ul este invalid!");
+	}
+
+	string getUnitateMasura(int id) {
+		int ok = 1;
+		for (int i = 0; i < this->nrMateriiPrime && ok; i++)
+			if (id == this->stocMaterii[i]->getId())
+				return this->stocMaterii[i]->getUnitateMasura();
+		throw new CustomException("\nId-ul este invalid!");
+	}
+
+	Stoc& operator +=(const MateriePrima& m) {
+		Stoc copie = *this;
+
+		delete[] this->stocMaterii;
+		this->stocMaterii = nullptr;
+
+		this->stocMaterii = new MateriePrima * [this->nrMateriiPrime + 1];
+		this->nrMateriiPrime++;
+
+		for (int i = 0; i < copie.nrMateriiPrime; i++)
+			this->stocMaterii[i] = new MateriePrima(*copie.stocMaterii[i]);
+		this->stocMaterii[this->nrMateriiPrime - 1] = new MateriePrima(m);
+		return *this;
+	}
+
+	void stergeMateriePrima(int index) {
+		Stoc copie = *this;
+		delete[] this->stocMaterii;
+		this->stocMaterii = nullptr;
+		this->stocMaterii = new MateriePrima * [this->nrMateriiPrime - 1];
+		this->nrMateriiPrime--;
+		int cnt = 0;
+		for (int i = 0; i < copie.nrMateriiPrime; i++)
+			if (index != copie.stocMaterii[i]->getId())
+				this->stocMaterii[cnt++] = copie.stocMaterii[i];
+	}
+
+	void adaugaStocMateriePrima(int index, float cantitate) {
+		for (int i = 0; i < this->nrMateriiPrime; i++)
+			if (this->stocMaterii[i]->getId() == index)
+				try {
+				*this->stocMaterii[i] + cantitate;
+			}
+		catch (CustomException* ex) {
+			cout << ex->getMesaj();
+		}
+	}
+
+	bool operator >=(MateriePrima& m) {
+		for (int i = 0; i < this->nrMateriiPrime; i++) {
+			if (strcmp(this->stocMaterii[i]->getDenumire(), m.getDenumire()) == 0)
+				if (this->stocMaterii[i]->verifCantitate(m.getCantitate()))
+					return true;
+				else
+					return false;
+
+		}
+	}
+
+	MateriePrima& operator[](int index) {
+		for (int i = 0; i < this->nrMateriiPrime; i++)
+			if (index == this->stocMaterii[i]->getId())
+				return *this->stocMaterii[i];
+		throw new CustomException("\nIndexul introdus este invalid!");
+	}
+
+	Stoc& operator -(MateriePrima& m) {
+		for (int i = 0; i < this->nrMateriiPrime; i++) {
+			if (strcmp(this->stocMaterii[i]->getDenumire(), m.getDenumire()) == 0)
+				this->stocMaterii[i]->scadereCantitate(m.getCantitate());
+		}
+
+		return *this;
+	}
+
+	void raportMateriiPrime(string filename) {
+		cout << "\n=====================================================";
+		ofstream f(filename);
+		list<string> listMP;
+		cout<<endl<< "Raportul materiilor prime disponibile: ";
+		f << "Raportul materiilor prime disponibile: ";
+		for (int i = 0; i < this->nrMateriiPrime; i++)
+			if (this->stocMaterii[i]->getCantitate() > 0)
+				listMP.push_back(this->stocMaterii[i]->getDenumire());
+		list<string>::iterator itMP;
+
+		for (itMP = listMP.begin(); itMP != listMP.end(); itMP++) {
+			cout << endl<< *itMP;
+			f << endl << *itMP;
+		}
+
+		f.close();
+	}
+
+	void raportSortareStoc(string filename) {
+		cout << "\n=====================================================";
+		ofstream f(filename);
+		cout << endl << "Raportul materiilor prime sortate in functie de stoc: ";
+		f << "Raportul materiilor prime sortate in functie de stoc: ";
+
+		map<string, float> mapMP;
+
+		for (int i = 0; i < this->nrMateriiPrime; i++)
+			mapMP[this->stocMaterii[i]->getDenumire()] = this->stocMaterii[i]->getCantitate();
+
+		vector<pair<string, float>>vectorMP(mapMP.begin(), mapMP.end());
+
+		sort(vectorMP.begin(), vectorMP.end(), compararePret);
+
+		vector<pair<string, float>>:: iterator itMP;
+		for (itMP = vectorMP.begin(); itMP != vectorMP.end(); itMP++) {
+			cout << endl<<itMP->first<<" "<< itMP->second;
+			f<< endl << itMP->first << " " << itMP->second;
+		}
+
+		f.close();
+	}
+
+	~Stoc() {
+		delete[] this->stocMaterii;
+		this->stocMaterii = nullptr;
+	}
+};
+
+class Preparat {
+	string denumire;
+	int nrMateriiPrime;
+	MateriePrima** cantitatiNecesare;
+	float pret;
+public:
+
+	/*Preparat(string denumire) {
+		this->denumire = denumire;
+		this->nrMateriiPrime = 0;
+		this->cantitatiNecesare = nullptr;
+		this->pret = 0;
+	}*/
+
+	Preparat() {
+		this->denumire = "N/A";
+		this->nrMateriiPrime = 0;
+		this->cantitatiNecesare = nullptr;
+		this->pret = 0;
+	}
+
+	Preparat(string denumire, int nrMateriiPrime, MateriePrima** cantitatiNecesare, float pret) {
+		this->denumire = denumire;
+		if (nrMateriiPrime > 0)
+			this->nrMateriiPrime = nrMateriiPrime;
+		else
+			this->nrMateriiPrime = 0;
+		if (this->nrMateriiPrime > 0 && cantitatiNecesare != nullptr) {
+			this->cantitatiNecesare = new MateriePrima * [this->nrMateriiPrime];
+			for (int i = 0; i < this->nrMateriiPrime; i++)
+				this->cantitatiNecesare[i] = new MateriePrima(*cantitatiNecesare[i]);
+		}
+		else
+			this->cantitatiNecesare = nullptr;
+		if (pret > 0)
+			this->pret = pret;
+		else
+			this->pret = 0;
+	}
+
+	Preparat(const Preparat& p) {
+		this->denumire = p.denumire;
+		if (p.nrMateriiPrime > 0)
+			this->nrMateriiPrime = p.nrMateriiPrime;
+		else
+			this->nrMateriiPrime = 0;
+		if (this->nrMateriiPrime > 0 && p.cantitatiNecesare != nullptr) {
+			this->cantitatiNecesare = new MateriePrima * [this->nrMateriiPrime];
+			for (int i = 0; i < this->nrMateriiPrime; i++)
+				this->cantitatiNecesare[i] = new MateriePrima(*p.cantitatiNecesare[i]);
+			this->pret = p.pret;
+		}
+	}
+
+	Preparat& operator=(const Preparat& p) {
+		if (this != &p) {
+			delete[] this->cantitatiNecesare;
+			this->cantitatiNecesare = nullptr;
+			this->denumire = p.denumire;
+			if (p.nrMateriiPrime > 0)
+				this->nrMateriiPrime = p.nrMateriiPrime;
+			else
+				this->nrMateriiPrime = 0;
+			if (this->nrMateriiPrime > 0 && p.cantitatiNecesare != nullptr) {
+				this->cantitatiNecesare = new MateriePrima * [this->nrMateriiPrime];
+				for (int i = 0; i < this->nrMateriiPrime; i++)
+					this->cantitatiNecesare[i] = new MateriePrima(*p.cantitatiNecesare[i]);
+			}
+			this->pret = pret;
+		}
+		return *this;
+	}
+
+	friend ostream& operator<<(ostream& out, const Preparat& p) {
+		out << "\n=============PREPARAT================";
+		out << "\nDenumire: " << p.denumire;
+		out << "\nNumar materii prime: " << p.nrMateriiPrime;
+		out << "\nCantitati necesare: ";
+		if (p.cantitatiNecesare != nullptr) {
+			for (int i = 0; i < p.nrMateriiPrime; i++)
+				out << *p.cantitatiNecesare[i] << " ";
+		}
+		else
+			out << " -";
+		out << "\nPret: " << p.pret;
+		return out;
+	}
+
+	friend ofstream& operator<<(ofstream& fout, const Preparat& p) {
+		fout<< p.denumire<<endl;
+		fout << p.pret<<endl;
+		fout << p.nrMateriiPrime;
+		if (p.cantitatiNecesare != nullptr) {
+			for (int i = 0; i < p.nrMateriiPrime; i++) {
+				fout << endl;
+				fout << *p.cantitatiNecesare[i];
+			}
+		}
+		return fout;
+	}
+
+	void writeToFile(fstream& f) {
+		int lg1 = this->denumire.size() + 1;
+		f.write((char*)&lg1, sizeof(int));
+		f.write((char*)this->denumire.data(), lg1);
+
+		f.write((char*)(&this->nrMateriiPrime), sizeof(int));
+
+		for (int i = 0; i < this->nrMateriiPrime; i++) {
+			cantitatiNecesare[i]->writeToFile(f);
+		}
+
+		f.write((char*)(&this->pret), sizeof(float));
+	}
+
+	void readFromFile(fstream& f) {
+		int lg1;
+		f.read((char*)&lg1, sizeof(int));
+		char* buffer = new char[lg1];
+		f.read(buffer, lg1);
+		this->denumire = buffer;
+		delete[] buffer;
+		buffer = nullptr;
+
+		f.read((char*)(&this->nrMateriiPrime), sizeof(int));
+		this->cantitatiNecesare = new MateriePrima * [this->nrMateriiPrime];
+		for (int i = 0; i < this->nrMateriiPrime; i++) {
+			this->cantitatiNecesare[i] = new MateriePrima();
+			this->cantitatiNecesare[i]->readFromFile(f);
+		}
+
+		f.read((char*)(&this->pret), sizeof(float));
+	}
+
+	friend istream& operator>>(istream& in, Preparat& p) {
+		delete[] p.cantitatiNecesare;
+		p.cantitatiNecesare = nullptr;
+
+		cout << "\nIntroduceti denumirea preparatului: ";
+		in.get();
+		getline(in, p.denumire);
+
+		cout << "\nIntroduceti numarul materiilor prime: ";
+		int nr1;
+		in >> nr1;
+		if (nr1 > 0)
+			p.nrMateriiPrime = nr1;
+		else
+			p.nrMateriiPrime = 0;
+
+		if (p.nrMateriiPrime > 0)
+		{
+			p.cantitatiNecesare = new MateriePrima * [p.nrMateriiPrime];
+			for (int i = 0; i < p.nrMateriiPrime; i++)
+			{
+				p.cantitatiNecesare[i] = new MateriePrima();
+				in >> *p.cantitatiNecesare[i];
+			}
+		}
+		else
+			p.cantitatiNecesare = nullptr;
+		float nr2;
+		cout << "\nIntroduceti pretul: ";
+		in >> nr2;
+		if (nr2 > 0)
+			p.pret = nr2;
+		else
+			p.pret = 0;
+		return in;
+	}
+
+	friend ifstream& operator>>(ifstream& fin, Preparat& p) {
+		delete[] p.cantitatiNecesare;
+		p.cantitatiNecesare = nullptr;
+		fin.get();
+		getline(fin, p.denumire);
+		float nr2;
+		fin >> nr2;
+		if (nr2 > 0)
+			p.pret = nr2;
+		else
+			p.pret = 0;
+		int nr1;
+		fin >> nr1;
+		if (nr1 > 0)
+			p.nrMateriiPrime = nr1;
+		else
+			p.nrMateriiPrime = 0;
+
+		if (p.nrMateriiPrime > 0)
+		{
+			p.cantitatiNecesare = new MateriePrima * [p.nrMateriiPrime];
+			for (int i = 0; i < p.nrMateriiPrime; i++)
+			{
+				p.cantitatiNecesare[i] = new MateriePrima();
+				fin >> *p.cantitatiNecesare[i];
+			}
+		}
+		else
+			p.cantitatiNecesare = nullptr;
+		return fin;
+	}
+
+	void setCantitate(int id, float cantitate) {
+		int ok = 1;
+		for (int i = 0; i < this->nrMateriiPrime && ok; i++)
+			if (id == this->cantitatiNecesare[i]->getId())
+			{
+				this->cantitatiNecesare[i]->setCantitate(cantitate);
+				ok = 0;
+			}
+		if (ok)
+			throw new CustomException("\nId-ul este invalid!");
+	}
+
+	void setPret(int id, float pret) {
+		if (pret > 0) {
+			this->pret = pret;
+		}
+		else
+			throw new CustomException("\nPretul introdus nu este valid!");
+	}
+
+	string getDenumire() {
+		return this->denumire;
+	}
+
+	float getPret() {
+		return this->pret;
+	}
+
+	void setPret(float pret)
+	{
+		if (pret > 0)
+			this->pret = pret;
+		else
+			throw new CustomException("\nPretul este invalid!");
+	}
+
+	bool operator==(string denumire) {
+		if (this->denumire == denumire) return true;
+		else return false;
+	}
+
+	bool operator <=(Stoc& s) {
+		int ok = 1;
+		for (int i = 0; i < this->nrMateriiPrime && ok; i++)
+			if (s >= *this->cantitatiNecesare[i]) {
+			}
+			else {
+				ok = 0;
+			}
+		if (ok == 0) return false;
+		for (int i = 0; i < this->nrMateriiPrime; i++)
+			s - *this->cantitatiNecesare[i];
+		return true;
+
+	}
+
+	float getCantitate() {
+		float gramaj = 0;
+		for (int i = 0; i < this->nrMateriiPrime; i++) {
+			gramaj += this->cantitatiNecesare[i]->getCantitate();
+		}
+		return gramaj;
+	}
+
+	~Preparat() {
+		delete[] this->cantitatiNecesare;
+		this->cantitatiNecesare = nullptr;
+	}
+};
+
+class Meniu {
+	int nrPreparate;
+	Preparat** preparate;
+public:
+
+	Meniu(int nrPreparate, Preparat** preparate) {
+		if (nrPreparate > 0 && preparate != nullptr) {
+			this->nrPreparate = nrPreparate;
+			this->preparate = new Preparat * [this->nrPreparate];
+			for (int i = 0; i < this->nrPreparate; i++)
+				this->preparate[i] = new Preparat(*preparate[i]);
+		}
+		else {
+			this->nrPreparate = 0;
+			this->preparate = nullptr;
+		}
+	}
+
+	Meniu() {}
+
+	Meniu(const Meniu& m) {
+		if (m.nrPreparate > 0 && m.preparate != nullptr) {
+			this->nrPreparate = m.nrPreparate;
+			this->preparate = new Preparat * [this->nrPreparate];
+			for (int i = 0; i < this->nrPreparate; i++)
+				this->preparate[i] = new Preparat(*m.preparate[i]);
+		}
+		else {
+			this->nrPreparate = 0;
+			this->preparate = nullptr;
+		}
+	}
+
+	void writeToFile(fstream& f) {
+		f.write((char*)(&this->nrPreparate), sizeof(int));
+
+		for (int i = 0; i < this->nrPreparate; i++) {
+			preparate[i]->writeToFile(f);
+		}
+	}
+
+	void readFromFile(fstream& f) {
+		f.read((char*)(&this->nrPreparate), sizeof(int));
+		this->preparate = new Preparat * [this->nrPreparate];
+		for (int i = 0; i < this->nrPreparate; i++) {
+			this->preparate[i] = new Preparat();
+			this->preparate[i]->readFromFile(f);
+		}
+	}
+
+	Meniu& operator=(const Meniu& m) {
+		if (this != &m) {
+			delete[] this->preparate;
+			this->preparate = nullptr;
+			if (m.nrPreparate > 0 && m.preparate != nullptr) {
+				this->nrPreparate = m.nrPreparate;
+				this->preparate = new Preparat * [this->nrPreparate];
+				for (int i = 0; i < this->nrPreparate; i++)
+					this->preparate[i] = new Preparat(*m.preparate[i]);
+			}
+			else {
+				this->nrPreparate = 0;
+				this->preparate = nullptr;
+			}
+		}
+	}
+
+	friend ostream& operator <<(ostream& out, const Meniu& m) {
+		out << "\n===================Meniu======================";
+		if (m.preparate != nullptr)
+			for (int i = 0; i < m.nrPreparate; i++)
+				out << "\n\t -" << m.preparate[i]->getDenumire() << " " << m.preparate[i]->getPret() << " lei";
+		else
+			out << " -";
+		return out;
+	}
+
+	friend ofstream& operator <<(ofstream& fout, const Meniu& m) {
+		fout << m.nrPreparate;
+		if (m.preparate != nullptr)
+			for (int i = 0; i < m.nrPreparate; i++)
+			{
+				fout << endl;
+				fout << *m.preparate[i];
+			}
+		return fout;
+	}
+
+	friend istream& operator >>(istream& in, Meniu& m) {
+		delete[] m.preparate;
+		m.preparate = nullptr;
+		cout << "\nIntroduceti numarul preparatelor: ";
+		int nr;
+		in >> nr;
+		if (nr > 0)
+			m.nrPreparate = nr;
+		else
+			m.nrPreparate = 0;
+
+		if (m.nrPreparate > 0)
+		{
+			m.preparate = new Preparat * [m.nrPreparate];
+			cout << "\nIntroduceti preparatele: ";
+			for (int i = 0; i < m.nrPreparate; i++)
+			{
+				m.preparate[i] = new Preparat();
+				in >> *m.preparate[i];
+			}
+		}
+		else
+			m.preparate = nullptr;
+		return in;
+	}
+
+	friend ifstream& operator >>(ifstream& fin, Meniu& m) {
+		delete[] m.preparate;
+		m.preparate = nullptr;
+		int nr;
+		fin >> nr;
+		if (nr > 0)
+			m.nrPreparate = nr;
+		else
+			m.nrPreparate = 0;
+
+		if (m.nrPreparate > 0)
+		{
+			m.preparate = new Preparat * [m.nrPreparate];
+			for (int i = 0; i < m.nrPreparate; i++)
+			{
+				m.preparate[i] = new Preparat();
+				fin >> *m.preparate[i];
+			}
+		}
+		else
+			m.preparate = nullptr;
+		return fin;
+	}
+
+	void raportPreparateMedie(string filename) {
+		cout << "\n=====================================================";
+		float media = 0;
+		ofstream f(filename);
+		f << "Raport media preturilor din meniu: " << endl;
+		cout << endl << "Raport media preturilor din meniu: ";
+		for (int i = 0; i < this->nrPreparate; i++)
+			media += this->preparate[i]->getPret();
+
+		media = (float)media / this->nrPreparate;
+		f << media;
+		cout << media;
+
+		map<string, float> mapScump;
+		map<string, float> mapIeftin;
+
+		for(int i =0; i < this->nrPreparate;i++) {
+			if (this->preparate[i]->getPret() > media)
+				mapScump[this->preparate[i]->getDenumire()] = this->preparate[i]->getPret();
+			if (this->preparate[i]->getPret() < media)
+				mapIeftin[this->preparate[i]->getDenumire()] = this->preparate[i]->getPret();
+	}
+		map<string, float>::iterator itMap;
+
+		f <<endl<< "Preparate peste media preturilor: ";
+		cout << endl << "Preparate peste media preturilor: ";
+		for (itMap = mapScump.begin(); itMap != mapScump.end(); itMap++) {
+			cout << endl << itMap->first << " " << itMap->second << "lei";
+			f<<endl<< itMap->first << " " << itMap->second << "lei";
+		}
+
+		f << endl << "Preparate sub media preturilor: ";
+		cout << endl << "Preparate sub media preturilor: ";
+		for (itMap = mapIeftin.begin(); itMap != mapIeftin.end(); itMap++) {
+			cout << endl << itMap->first << " " << itMap->second << "lei";
+			f << endl << itMap->first << " " << itMap->second << "lei";
+		}
+
+	}
+
+	Meniu& operator +=(const Preparat& p) {
+		Meniu copie = *this;
+
+		delete[] this->preparate;
+		this->preparate = nullptr;
+
+		this->preparate = new Preparat * [this->nrPreparate + 1];
+		this->nrPreparate++;
+
+		for (int i = 0; i < copie.nrPreparate; i++) {
+			this->preparate[i] = new Preparat(*copie.preparate[i]);
+		}
+
+		this->preparate[this->nrPreparate - 1] = new Preparat(p);
+		return *this;
+	}
+
+	void stergePreparat(string denumire) {
+		Meniu copie = *this;
+
+		delete[] this->preparate;
+		this->preparate = nullptr;
+
+		this->preparate = new Preparat * [this->nrPreparate - 1];
+		this->nrPreparate--;
+		int cnt = 0;
+		for (int i = 0; i < copie.nrPreparate; i++)
+			if (copie.preparate[i]->getDenumire() != denumire)
+				this->preparate[cnt++] = new Preparat(*copie.preparate[i]);
+	}
+
+	Preparat& operator ==(string denumire) {
+		for (int i = 0; i < this->nrPreparate; i++)
+			if (this->preparate[i]->getDenumire() == denumire)
+			{
+				return *this->preparate[i];
+			}
+	}
+
+	void modificarePretPreparat(string denumire, float pret) {
+		int ok = 1;
+		for (int i = 0; i < this->nrPreparate && ok; i++)
+			if (this->preparate[i]->getDenumire() == denumire)
+			{
+				try {
+					this->preparate[i]->setPret(pret);
+				}
+				catch (CustomException* ex) {
+					cout << ex->getMesaj();
+				}
+				ok = 0;
+			}
+		if (ok)
+			throw new CustomException("\n Denumirea nu exista!");
+	}
+
+	float getPret(string denumire) {
+		for (int i = 0; i < this->nrPreparate; i++)
+			if (this->preparate[i]->getDenumire() == denumire)
+				return this->preparate[i]->getPret();
+	}
+
+	float getCantitate(string denumire) {
+		for (int i = 0; i < this->nrPreparate; i++)
+			if (this->preparate[i]->getDenumire() == denumire)
+				return this->preparate[i]->getCantitate();
+	}
+
+	bool verificaPreparat(string denumire, Stoc& s) {
+		for (int i = 0; i < this->nrPreparate; i++)
+			if (*this->preparate[i] == denumire) {
+				if (*this->preparate[i] <= s)
+					return true;
+			}
+		return false;
+	}
+
+	~Meniu() {
+		delete[] this->preparate;
+		this->preparate = nullptr;
+	}
+};
+
+class Comanda {
+	int nrPreparateComandate;
+	int* NrBucatiPreparateDistincte;
+	string* PreparateDistincte;
+
+public:
+
+	Comanda(int nrPreparateComandate, int* NrBucatiPreparateDistincte, string* PreparateDistincte) {
+		if (nrPreparateComandate > 0)
+			this->nrPreparateComandate = nrPreparateComandate;
+		else
+			this->nrPreparateComandate = 0;
+		if (this->nrPreparateComandate > 0 && NrBucatiPreparateDistincte != nullptr && PreparateDistincte != nullptr) {
+			this->NrBucatiPreparateDistincte = new int[this->nrPreparateComandate];
+			this->PreparateDistincte = new string[this->nrPreparateComandate];
+			for (int i = 0; i < this->nrPreparateComandate; i++) {
+				this->NrBucatiPreparateDistincte[i] = NrBucatiPreparateDistincte[i];
+				this->PreparateDistincte[i] = PreparateDistincte[i];
+			}
+		}
+	}
+
+	Comanda() {}
+
+	Comanda(const Comanda& c) {
+		if (c.nrPreparateComandate > 0)
+			this->nrPreparateComandate = c.nrPreparateComandate;
+		else
+			this->nrPreparateComandate = 0;
+		if (this->nrPreparateComandate > 0 && c.NrBucatiPreparateDistincte != nullptr && c.PreparateDistincte != nullptr) {
+			this->NrBucatiPreparateDistincte = new int[this->nrPreparateComandate];
+			this->PreparateDistincte = new string[this->nrPreparateComandate];
+			for (int i = 0; i < this->nrPreparateComandate; i++) {
+				this->NrBucatiPreparateDistincte[i] = c.NrBucatiPreparateDistincte[i];
+				this->PreparateDistincte[i] = c.PreparateDistincte[i];
+			}
+		}
+	}
+
+	Comanda& operator=(const Comanda& c) {
+		if (this != &c) {
+			delete[] this->NrBucatiPreparateDistincte;
+			this->NrBucatiPreparateDistincte = nullptr;
+			delete[] this->PreparateDistincte;
+			this->PreparateDistincte = nullptr;
+			if (c.nrPreparateComandate > 0)
+				this->nrPreparateComandate = c.nrPreparateComandate;
+			else
+				this->nrPreparateComandate = 0;
+			if (this->nrPreparateComandate > 0 && c.NrBucatiPreparateDistincte != nullptr && c.PreparateDistincte != nullptr) {
+				this->NrBucatiPreparateDistincte = new int[this->nrPreparateComandate];
+				this->PreparateDistincte = new string[this->nrPreparateComandate];
+				for (int i = 0; i < this->nrPreparateComandate; i++) {
+					this->NrBucatiPreparateDistincte[i] = c.NrBucatiPreparateDistincte[i];
+					this->PreparateDistincte[i] = c.PreparateDistincte[i];
+				}
+			}
+		}
+		return *this;
+	}
+
+	friend istream& operator>>(istream& in, Comanda& c) {
+		delete[] c.NrBucatiPreparateDistincte;
+		c.NrBucatiPreparateDistincte = nullptr;
+		delete[] c.PreparateDistincte;
+		c.PreparateDistincte = nullptr;
+		cout << "\nNumarul de preparate distincte pe care doriti sa il comandati: ";
+		in >> c.nrPreparateComandate;
+		cout << "\n Ce ati dori sa comandati si cate bucati?";
+		c.NrBucatiPreparateDistincte = new int[c.nrPreparateComandate];
+		c.PreparateDistincte = new string[c.nrPreparateComandate];
+		for (int i = 0; i < c.nrPreparateComandate; i++) {
+			cout << "\nPreparat: ";
+			in.get();
+			getline(in, c.PreparateDistincte[i]);
+			cout << "\nNumar bucati: ";
+			in >> c.NrBucatiPreparateDistincte[i];
+		}
+		return in;
+	}
+
+	friend ostream& operator <<(ostream& out, const Comanda& c) {
+		out << "\n-----------------------------------------------";
+		out << "\nAti comandat: ";
+		for (int i = 0; i < c.nrPreparateComandate; i++)
+			out << c.NrBucatiPreparateDistincte[i] << " x " << c.PreparateDistincte[i] << "; ";
+		return out;
+	}
+
+	bool verificaComanda(Meniu& m, Stoc& s) {
+		bool ok = true;
+		for (int i = 0; i < this->nrPreparateComandate; i++) {
+			int nr = this->NrBucatiPreparateDistincte[i];
+			while (nr) {
+				if (m.verificaPreparat(this->PreparateDistincte[i], s))
+					nr--;
+				else break;
+			}
+			if (nr == 0)
+				cout << "\nPreparatul " << this->PreparateDistincte[i] << " poate fi realizat complet!";
+			else if (nr == this->NrBucatiPreparateDistincte[i])
+			{
+				cout << "\nPreparatul " << this->PreparateDistincte[i] << " nu poate fi realizat!";
+				ok = false;
+			}
+			else
+			{
+				cout << "\nPot fi realizate doar " << this->NrBucatiPreparateDistincte[i] - nr << " bucati din preparatul " << this->PreparateDistincte[i] << "!";
+				ok = false;
+			}
+		}
+		return ok;
+	}
+
+	void modificaDenumire(string denumireVechi, string denumireNou, int nrNou) {
+		for (int i = 0; i < this->nrPreparateComandate; i++)
+			if (this->PreparateDistincte[i] == denumireVechi)
+			{
+				this->PreparateDistincte[i] = denumireNou;
+				this->NrBucatiPreparateDistincte[i] = nrNou;
+			}
+	}
+
+	void raportNotaDePlata(Meniu& m, string filename) {
+		cout << "\n=================================================";
+		float nota = 0;
+		for (int i = 0; i < this->nrPreparateComandate; i++) {
+			nota += m.getPret(this->PreparateDistincte[i]) * this->NrBucatiPreparateDistincte[i];
+		}
+		ofstream f(filename);
+		f << "Raport nota de plata: " << endl;
+		cout << endl << "Raport nota de plata: ";
+		f << "Total de plata: " << nota<< endl;
+		cout << endl << "Total de plata: "<<nota;
+
+		f << "Bacsis 5%: " <<nota*5/100<< endl;
+		cout << endl << "Bacsis 5%: "<< nota * 5 / 100;
+
+		f << "Bacsis 10%: " << nota * 10 / 100 << endl;
+		cout << endl << "Bacsis 10%: " << nota * 10 / 100;
+
+		f << "Bacsis 15%: " << nota * 15 / 100 << endl;
+		cout << endl << "Bacsis 15%: " << nota * 15 / 100;
+	}
+
+	void gramajTotal(Meniu& m, string filename) {
+		float gramaj = 0;
+		ofstream f(filename);
+		f << "Raport cantitati preparate: " << endl;
+		cout << endl << "Raport cantitati preparate: ";
+		cout << "\n=================================================";
+		for (int i = 0; i < this->nrPreparateComandate; i++) {
+			cout << endl << this->PreparateDistincte[i] << " aprox. " << m.getCantitate(this->PreparateDistincte[i]) << " g";
+			f << this->PreparateDistincte[i] << " aprox. " << m.getCantitate(this->PreparateDistincte[i]) << " g" <<endl;
+			gramaj += m.getCantitate(this->PreparateDistincte[i]) * this->NrBucatiPreparateDistincte[i];
+		}
+		f << "Cantitate toala: aprox. " <<gramaj<< endl;
+		cout << endl << "Cantitate toala: aprox. " << gramaj;
+	}
+
+	~Comanda() {
+		delete[] this->NrBucatiPreparateDistincte;
+		this->NrBucatiPreparateDistincte = nullptr;
+		delete[] this->PreparateDistincte;
+		this->PreparateDistincte = nullptr;
+	}
+
+};
+
+int main() {
+
+	//Materii prime stoc
+
+	MateriePrima m1("Faina", 1000, "g");
+	MateriePrima m2("Lapte", 10000, "ml");
+	MateriePrima m3("Sare", 10000, "g");
+	MateriePrima m4("Piper", 10000, "g");
+	MateriePrima m5("Ulei", 10000, "ml");
+	MateriePrima m6("Paste", 20000, "g");
+	MateriePrima m7("Sos de rosii", 10000, "ml");
+	MateriePrima m8("Cascaval", 10000, "g");
+	MateriePrima m9("Ciuperci", 3000, "g");
+	MateriePrima m10("Masline", 3000, "g");
+	MateriePrima m11("Salam", 3000, "g");
+	MateriePrima m12("Carne tocata", 10000, "g");
+	MateriePrima m13("Bacon", 7000, "g");
+
+	MateriePrima* v[] = { &m1, &m2, &m3, &m4, &m5 , &m6 , &m7 , &m8 , &m9 , &m10 , &m11, &m12, &m13 };
+
+	Stoc s(13, v);
+
+	MateriePrima m;
+
+	//Materii prime preparate
+
+	MateriePrima m1_1("Faina", 200, "g");
+	MateriePrima m21("Lapte", 500, "ml");
+	MateriePrima m31("Sare", 10, "g");
+	MateriePrima m41("Piper", 10, "g");
+	MateriePrima m51("Ulei", 30, "ml");
+	MateriePrima m61("Paste", 400, "g");
+	MateriePrima m71("Sos de rosii", 300, "ml");
+	MateriePrima m81("Cascaval", 100, "g");
+	MateriePrima m91("Ciuperci", 50, "g");
+	MateriePrima m101("Masline", 50, "g");
+	MateriePrima m111("Salam", 60, "g");
+	MateriePrima m121("Carne tocata", 100, "g");
+	MateriePrima m131("Bacon", 80, "g");
+
+	MateriePrima* x1[] = { &m1_1, &m31, &m41, &m51, &m71, &m81, &m91 };
+	MateriePrima* x2[] = { &m1_1, &m31, &m41, &m51, &m71, &m81, &m111 };
+	MateriePrima* x3[] = { &m1_1, &m31, &m41, &m51, &m71, &m101, &m91 };
+	MateriePrima* x4[] = { &m1_1, &m31, &m41, &m51, &m71, &m81, &m131 };
+	MateriePrima* x5[] = { &m61, &m31, &m41, &m51, &m71, &m81, &m91 };
+	MateriePrima* x6[] = { &m61, &m31, &m41, &m51, &m71, &m81, &m131 };
+	MateriePrima* x7[] = { &m61, &m31, &m41, &m51, &m71, &m81, &m121 };
+
+	Preparat p1("Pizza cu ciuperci", 7, x1, 35.5);
+	Preparat p2("Pizza cu salam", 7, x2, 37.5);
+	Preparat p3("Pizza vegana", 7, x3, 34.5);
+	Preparat p4("Pizza cu bacon", 7, x4, 37.5);
+	Preparat p5("Paste cu ciuperci", 7, x5, 32.5);
+	Preparat p6("Paste cu bacon", 7, x6, 34.5);
+	Preparat p7("Paste cu carne tocata", 7, x7, 36.5);
+
+
+	Preparat p;
+
+	Preparat* pp[] = { &p1, &p2, &p3, &p4, &p5, &p6, &p7 };
+
+	Meniu mm(7, pp);
+	int ok = 1;
+
+	//FISIERE TEXT
+
+	//ofstream g("test.txt");
+	//g << mm;
+	//g.close();
+	//ifstream f("test.txt");
+	////MateriePrima materiefis;
+	////Stoc stocfis;
+	//Meniu mmfis;
+	////Preparat prepfis;
+	//f >> mmfis;
+	//cout << mmfis;
+	//f.close();
+
+	//FISIERE CSV 
+
+	//m3.writeCSV("csv.txt");
+	//MateriePrima materiefis;
+	//materiefis.readCSV("csv.txt");
+	////cout << materiefis;
+
+	//s.writeCSVStoc("csv_stoc.txt");
+	//Stoc stocfis;
+	//stocfis.readCSVStoc("csv_stoc.txt");
+	////cout << stocfis;
+
+
+	//FISIERE BINARE
+
+	//Materie prima
+
+	//fstream fileout("fis.bin", ios::out | ios::binary);
+	//m1.writeToFile(fileout);
+	//fileout.close();
+
+	//fstream filein("fis.bin", ios::in | ios::binary);
+	//MateriePrima mbin;
+	////cout << mbin;
+	//mbin.readFromFile(filein);
+	//filein.close();
+	////cout << mbin;
+
+	////Stoc
+
+	//fstream fileout1("fisStoc.bin", ios::out | ios::binary);
+	//s.writeToFile(fileout1);
+	//fileout1.close();
+
+	//fstream filein1("fisStoc.bin", ios::in | ios::binary);
+	//Stoc sbin;
+	////cout << sbin;
+	//sbin.readFromFile(filein1);
+	//filein1.close();
+	////cout << sbin;
+
+	////Preparat
+
+	//fstream fileout2("fisPreparat.bin", ios::out | ios::binary);
+	//p1.writeToFile(fileout2);
+	//fileout2.close();
+
+	//fstream filein2("fisPreparat.bin", ios::in | ios::binary);
+	//Preparat pbin;
+	////cout << pbin;
+	//pbin.readFromFile(filein2);
+	//filein2.close();
+	////cout << pbin;
+
+	////Meniu
+
+	//fstream fileout3("fisMeniu.bin", ios::out | ios::binary);
+	//mm.writeToFile(fileout3);
+	//fileout3.close();
+
+	//fstream filein3("fisMeniu.bin", ios::in | ios::binary);
+	//Meniu mfis;
+	////cout << mfis;
+	//mfis.readFromFile(filein3);
+	//filein3.close();
+	////cout << mfis;
+
+	//Faina f1("Faina", 200, "g", "00");
+	////cout << f1;
+
+	//fstream fileout4("fisVirtual.bin", ios::out | ios::binary);
+	//f1.writeToFile(fileout4);
+	//fileout4.close();
+
+	//fstream filein4("fisVirtual.bin", ios::in | ios::binary);
+	//Faina f2;
+	////cout << f2;
+	//f2.readFromFile(filein4);
+	//filein4.close();
+	////cout << f2;
+
+	string utilizator;
+	cout << "Aplicatia este utilizata de (introduceti administrator sau client): ";
+	cin >> utilizator;
+
+	if (utilizator == "administrator") {
+		int cifra, index, instructiune;
+		string denumire;
+		float cantitate, pret;
+		while (ok) {
+			cout << "\nSelectati o categorie: " << "\n\t 1.stoc \n\t 2.meniu \n\t 3.iesire";
+			cout << "\nIntroduceti aici cifra categoriei: ";
+			cin >> cifra;
+			switch (cifra) {
+			case 1:
+				while (ok) {
+					cout << "\n\nSelectati o instructiune: " << "\n\t 1.vizualizare \n\t 2.introduceti stoc \n\t 3.adaugare materie prima \n\t 4.stergere materie prima\n\t 5.modificari/afisari materii prime \n\t 6.iesire";
+					cout << "\nIntroduceti cifra instructiunii: ";
+					cin >> instructiune;
+					switch (instructiune) {
+					case 1:
+						cout << s;
+						cout << "\n=================================================";
+						break;
+					case 2:
+						cin >> s;
+						break;
+					case 3:
+						cin >> m;
+						s += m;
+						break;
+					case 4:
+						cout << "\nIntroduceti id-ul materiei pe care doriti sa o stergeti: ";
+						cin >> index;
+						s.stergeMateriePrima(index);
+						break;
+					case 5:
+						int verif1;
+						while (ok) {
+							cout << "\n\n==========MATERII PRIME===============";
+							cout << "\nSelectati o instructiune: " << "\n\t 1.vizualizare \n\t 2.modificare denumire \n\t 3.modificare cantitate \n\t 4.modificare unitate de masura \n\t 5.Suplimentarea stoc \n\t 6.Afisare denumire \n\t 7.Afisare cantitate \n\t 8.Iesire";
+							cout << "\nIntroduceti cifra instructiunii: ";
+							cin >> verif1;
+							switch (verif1) {
+							case 1:
+								cout << "\nIntroduceti id-ul materiei pe care doriti sa o afisati: ";
+								cin >> index;
+								cout << s[index];
+								cout << "\n=================================================";
+								break;
+							case 2:
+								cout << "\nIntroduceti id-ul materiei prime pentru care doriti sa modificati denumirea: ";
+								cin >> index;
+								cout << "Introduceti noua denumirea a materiei prime: ";
+								cin >> denumire;
+								try {
+									s.setDenumire(index, denumire);
+								}
+								catch (CustomException* ex) {
+									cout << ex->getMesaj();
+									delete ex;
+								}
+
+								break;
+							case 3:
+								cout << "\nIntroduceti id-ul materiei prime pentru care doriti sa modificati cantitatea: ";
+								cin >> index;
+								cout << "Introduceti noua cantitate a materiei prime: ";
+								cin >> cantitate;
+								try {
+									s.setCantitate(index, cantitate);
+								}
+								catch (CustomException* ex) {
+									cout << ex->getMesaj();
+									delete ex;
+								}
+								break;
+							case 4:
+								cout << "\nIntroduceti id-ul materiei prime pentru care doriti sa modificati unitatea de masura: ";
+								cin >> index;
+								cout << "Introduceti noua unitate de masura a materiei prime: ";
+								cin >> denumire;
+								try {
+									s.setUnitateMasura(index, denumire);
+								}
+								catch (CustomException* ex) {
+									cout << ex->getMesaj();
+									delete ex;
+								}
+								break;
+							case 5:
+								cout << "\nIntroduceti id-ul materiei pentru care doriti sa suplimentati stocul: ";
+								cin >> index;
+								cout << "Introduceti cantitatea cu care doriti sa suplimentati: ";
+								cin >> cantitate;
+								s.adaugaStocMateriePrima(index, cantitate);
+								break;
+							case 6:
+								cout << "\nIntroduceti id-ul materiei pentru care doriti sa afisati denumirea: ";
+								cin >> index;
+								cout << "Denumire: " << s.getDenumire(index);
+								break;
+							case 7:
+								cout << "\nIntroduceti id-ul materiei pentru care doriti sa afisati cantitatea: ";
+								cin >> index;
+								cout << "Cantitatea: " << s.getCantitate(index) << " " << s.getUnitateMasura(index);
+								break;
+							case 8:
+								ok = 0;
+								break;
+							}
+						}
+						ok = 1;
+						break;
+					case 6:
+						ok = 0;
+						break;
+					}
+				}
+				ok = 1;
+				break;
+			case 2:
+				while (ok) {
+					cout << "\n\nSelectati o instructiune: " << "\n\t 1. Vizualizare meniu \n\t 2. Introduceti meniu \n\t 3. Adauga preparat \n\t 4. Sterge preparat \n\t 5. Vizualizare preparat \n\t 6. Modificare pret preparat \n\t 7.iesire";
+					cout << "\nIntroduceti cifra instructiunii: ";
+					cin >> instructiune;
+					switch (instructiune) {
+					case 1:
+						cout << mm;
+						break;
+					case 2:
+						cin >> mm;
+						break;
+					case 3:
+						cout << "\nIntroduceti preparatul: ";
+						cin >> p;
+						mm += p;
+						break;
+					case 4:
+						cout << "\nIntroduceti denumirea preparatulului: ";
+						cin.get();
+						getline(cin, denumire);
+						mm.stergePreparat(denumire);
+						break;
+					case 5:
+						cout << "\nIntroduceti denumirea preparatulului: ";
+						cin.get();
+						getline(cin, denumire);
+						cout << (mm == denumire);
+						break;
+					case 6:
+						try {
+							cout << "\nIntroduceti denumirea preparatului: ";
+							cin.get();
+							getline(cin, denumire);
+							cout << "\nIntroduceti noul pret: ";
+							cin >> pret;
+							mm.modificarePretPreparat(denumire, pret);
+						}
+						catch (CustomException* ex) {
+							cout << ex->getMesaj();
+							delete ex;
+						}
+						break;
+					case 7:
+						ok = 0;
+						break;
+					}
+				}
+				ok = 1;
+				break;
+			case 3:
+				ok = 0;
+				break;
+			}
+		}
+	}
+	else if (utilizator == "client") {
+		int ok = 1;
+		while (ok) {
+			cout << "\nDoriti sa consultati meniul, sa comandati sau sa parasiti aplicatia? ";
+			cout << "\nIntroduceti aici meniu, comanda, rapoarte sau exit: ";
+			string actiune;
+			Comanda c;
+			cin >> actiune;
+			if (actiune == "meniu") {
+				cout << mm;
+			}
+			else if (actiune == "comanda") {
+				cin >> c;
+				cout << c;
+				int ok = 1;
+				while (ok) {
+					Stoc copie = s;
+					cout << c;
+					if (c.verificaComanda(mm, copie)) {
+						ok = 0;
+						s = copie;
+					}
+					else {
+						cout << "\nDoriti sa: \n\t 1. pastrati comanda doar cu elementele ce pot fi preparate \n\t 2. schimbati complet comanda \n\t 3. modificati doar preparatele ce nu pot fi facute";
+						int alegere;
+						cout << "\nintroduceti aici cifra asociata alegerii dumneavoastra: ";
+						cin >> alegere;
+						switch (alegere) {
+						case 1:
+							s = copie;
+							ok = 0;
+							break;
+						case 2:
+							cout << "\nIntroduceti comanda noua: ";
+							cin >> c;
+							cout << c;
+							break;
+						case 3:
+							int nrElementeNoi, nrNou;
+							string denumireVechi, denumireNou;
+							cout << "\nIntroduceti numarul de preparate pe care doriti sa le modificati: ";
+							cin >> nrElementeNoi;
+							while (nrElementeNoi) {
+								cout << "Introduceti preparatul pe care doriti sa il modificati: ";
+								cin.get();
+								getline(cin, denumireVechi);
+								cout << "Introduceti noul preparat: ";
+								//cin.get();
+								getline(cin, denumireNou);
+								cout << "Introduceti numarul de preparate: ";
+								cin >> nrNou;
+								c.modificaDenumire(denumireVechi, denumireNou, nrNou);
+								nrElementeNoi--;
+							}
+							break;
+						}
+					}
+
+				}
+
+				cout << "\nRapoarte: ";
+				c.raportNotaDePlata(mm, "notaPlata.txt");
+				c.gramajTotal(mm, "Gramaj.txt");
+			}
+			else if (actiune == "rapoarte") {
+				mm.raportPreparateMedie("raportMM.txt");
+				s.raportSortareStoc("raportSort.txt");
+				s.raportMateriiPrime("raportMP.txt");
+			}
+			else if (actiune == "exit") {
+				cout << "\nLa revedere!";
+				ok = 0;
+			}
+		}
+	}
+}
